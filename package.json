@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "postinstall": "node scripts/init-tree-sitter.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@huggingface/inference": "^2.6.1",
@@ -18,8 +17,7 @@
     "octokit": "^3.1.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-syntax-highlighter": "^15.5.0",
-    "web-tree-sitter": "^0.20.8"
+    "react-syntax-highlighter": "^15.5.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
