@@ -33,7 +33,7 @@ export default function RepositoryInput({ onSubmit, isLoading }) {
   return (
     <div>
       <div className="text-center mb-10 mt-8">
-      <Sparkles className="w-12 h-12 text-pink-500 ml-28 " />
+      <Sparkles className="w-12 h-12 text-pink-500 ml-16 " />
   <span className="block text-4xl font-extrabold">Understanding thousands of lines of <br />  code just got easier</span>
   <p className="mt-2 text-md text-gray-600">
     
@@ -41,7 +41,7 @@ export default function RepositoryInput({ onSubmit, isLoading }) {
 </div>
 
 
-      <div className="bg-[#FFF4DA] border-4 border-black shadow-[8px_8px_0px_0px_black] mr- rounded-lg p-6">
+      <div className="bg-[#FFF4DA] border-4 border-black shadow-[8px_8px_0px_0px_black]  rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Enter GitHub Repository</h2>
 
         <form onSubmit={handleSubmit}>
