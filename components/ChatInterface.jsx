@@ -777,10 +777,10 @@ export default function ChatInterface({ repositoryInfo }) {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
+    <div className="bg-[#fff4da] border-4 border-black shadow-[8px_8px_0px_0px_black] rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-4">Ask about {repositoryInfo.name}</h2>
       
-      <div className="border rounded-lg p-4 mb-4 h-96 overflow-y-auto">
+      <div className="bg-[#FFFDF8] border-4 border-black rounded-lg p-4 mb-4 h-96 overflow-y-auto">
         {messages.map((message) => (
           <div key={message.id}>
             {renderMessage(message)}
@@ -807,7 +807,7 @@ export default function ChatInterface({ repositoryInfo }) {
       <form onSubmit={handleSubmit} className="flex">
         <input
           type="text"
-          className="input flex-grow mr-2"
+          className="input flex-grow mr-2 border-4  border-black w-[80%] shadow-[8px_8px_0px_0px_black] rounded-lg focus:outline-none focus:ring-0 focus:border-black" 
           placeholder="Ask a question about the codebase..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -815,14 +815,14 @@ export default function ChatInterface({ repositoryInfo }) {
         />
         <button
           type="submit"
-          className="btn btn-primary"
+          className="btn btn-black ml-4 bg-[#FFC480] border-4 h-full border-black shadow-[8px_8px_0px_0px_black] rounded-lg "
           disabled={isLoading || !input.trim()}
         >
           Send
         </button>
       </form>
       
-      <div className="mt-4 text-sm text-gray-600">
+      {/* <div className="mt-4 text-sm text-gray-600">
         <p className="mb-2">Try asking specific questions like:</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <button 
@@ -854,7 +854,7 @@ export default function ChatInterface({ repositoryInfo }) {
             What are the key API endpoints or functions?
           </button>
         </div>
-      </div>
+      </div> */}
       
       <style jsx global>{`
         .message-text h2, .message-text h3 {

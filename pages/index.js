@@ -54,7 +54,7 @@ export default function Home() {
           <RepositoryInput onSubmit={handleProcessRepository} isLoading={isProcessing} />
         ) : (
           <div>
-            <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="bg-[#FFF4DA] border-4 border-black shadow-[8px_8px_0px_0px_black] rounded-lg p-6 mb-6">
               <div className="flex items-center mb-4">
                 {repository.owner.avatar && (
                   <img 
@@ -75,13 +75,8 @@ export default function Home() {
                     ⭐ {repository.stars}
                   </span>
                 </div>
-              </div>
-              {repository.description && (
-                <p className="text-gray-700 border-t pt-4">{repository.description}</p>
-              )}
-              <div className="mt-4 text-right">
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-secondary ml-5 bg-[#FFC480] border-4 h-full border-black shadow-[8px_8px_0px_0px_black] rounded-lg"
                   onClick={() => {
                     setRepository(null);
                     setError(null);
@@ -90,6 +85,9 @@ export default function Home() {
                   Change Repository
                 </button>
               </div>
+              {repository.description && (
+                <p className="text-gray-700 border-t pt-4">{repository.description}</p>
+              )}
             </div>
             
             <ChatInterface repositoryInfo={repository} />
