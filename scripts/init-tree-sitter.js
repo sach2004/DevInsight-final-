@@ -59,7 +59,7 @@ async function setupTreeSitter() {
       fs.writeFileSync(mainWasmPath, '');
     }
     
-    // Create placeholder files for each language
+    
     for (const lang of LANGUAGES) {
       const langWasmPath = path.join(WASM_DIR, `tree-sitter-${lang.name}.wasm`);
       if (!fs.existsSync(langWasmPath)) {
@@ -77,5 +77,5 @@ async function setupTreeSitter() {
   }
 }
 
-// Run the setup
+
 setupTreeSitter();

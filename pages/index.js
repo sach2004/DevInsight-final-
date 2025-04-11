@@ -2,25 +2,29 @@ import { useState } from 'react';
 import Layout from '../components/Layout';
 import RepositoryInput from '../components/RepositoryInput';
 import ChatInterface from '../components/ChatInterface';
+import FileStructure from '../components/FileStructure';
+import Documentation from '../components/Documentation';
 import LoadingState from '../components/LoadingState';
 
 export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [repository, setRepository] = useState(null);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('chat');
   
   const handleProcessRepository = async (url) => {
-    // Reset state
+    
     setError(null);
     setIsProcessing(true);
     
     try {
-      // Call the API to process the repository
+      
       const response = await fetch('/api/process-repo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        
         body: JSON.stringify({ url }),
       });
       
@@ -30,8 +34,10 @@ export default function Home() {
         throw new Error(data.message || data.error || 'Failed to process repository');
       }
       
-      // Set repository data
+      console.log(JSON.stringify(data.repository))
+     
       setRepository(data.repository);
+      console.log(JSON.stringify(repository))
     } catch (error) {
       console.error('Error processing repository:', error);
       setError(error.message);
@@ -42,7 +48,7 @@ export default function Home() {
   
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6" role="alert">
             <p className="font-bold">Error</p>
@@ -54,7 +60,7 @@ export default function Home() {
           <RepositoryInput onSubmit={handleProcessRepository} isLoading={isProcessing} />
         ) : (
           <div>
-          <div className="bg-[#FFF4DA] border-4 border-black shadow-[8px_8px_0px_0px_black] rounded-lg p-6 mb-6">
+            <div className="bg-[#FFF4DA] border-4 border-black shadow-[8px_8px_0px_0px_black] rounded-lg p-6 mb-6">
               <div className="flex items-center mb-4">
                 {repository.owner.avatar && (
                   <img 
@@ -90,10 +96,52 @@ export default function Home() {
               )}
             </div>
             
-            <ChatInterface repositoryInfo={repository} />
+           
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                className={`py-2 px-4 font-medium text-sm mr-4 ${
+                  activeTab === 'chat' 
+                    ? 'text-primary-600 border-b-2 border-primary-600' 
+                    : 'text-gray-600 hover:text-primary-500'
+                }`}
+                onClick={() => setActiveTab('chat')}
+              >
+                Chat
+              </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm mr-4 ${
+                  activeTab === 'structure' 
+                    ? 'text-primary-600 border-b-2 border-primary-600' 
+                    : 'text-gray-600 hover:text-primary-500'
+                }`}
+                onClick={() => setActiveTab('structure')}
+              >
+                File Structure
+              </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm ${
+                  activeTab === 'docs' 
+                    ? 'text-primary-600 border-b-2 border-primary-600' 
+                    : 'text-gray-600 hover:text-primary-500'
+                }`}
+                onClick={() => setActiveTab('docs')}
+              >
+                Documentation
+              </button>
+            </div>
+            
+           
+            <div>
+              {activeTab === 'chat' && <ChatInterface repositoryInfo={repository} />}
+              {activeTab === 'structure' && <FileStructure repositoryInfo={repository} />}
+              {activeTab === 'docs' && <Documentation repositoryInfo={repository} />}
+            </div>
           </div>
         )}
       </div>
+      
+    
+      <div id="toast-container" className="fixed bottom-0 right-0 p-4 z-50"></div>
     </Layout>
   );
 }

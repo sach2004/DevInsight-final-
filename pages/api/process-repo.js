@@ -1,7 +1,7 @@
 import { parseGitHubUrl, getRepositoryInfo, getAllFiles, getFileContent } from '../../lib/github';
 import { chunkCodeFile } from '../../lib/chunker';
 import { batchProcessEmbeddings } from '../../lib/embeddings';
-import { deleteRepositoryData, addChunksToVectorStore } from '../../lib/chromadb';
+import { deleteRepositoryData, addChunksToVectorStore, getCollection } from '../../lib/chromadb';
 import { getRepositoryId } from '../../lib/utils';
 
 export default async function handler(req, res) {
@@ -16,18 +16,25 @@ export default async function handler(req, res) {
   }
   
   try {
-    // Parse GitHub URL to get owner and repo
+    console.log(`Processing repository: ${url}`);
+    
+    
     const { owner, repo } = parseGitHubUrl(url);
     const repoId = getRepositoryId(owner, repo);
     
-    // Get repository information
+    console.log(`Repository ID: ${repoId}`);
+    
+    
     const repoInfo = await getRepositoryInfo(owner, repo);
     
-    // Delete any existing data for this repository
+    
     await deleteRepositoryData(repoId);
     
-    // Get all files in the repository
+    
+    console.log(`Fetching files from ${owner}/${repo}...`);
     const files = await getAllFiles(owner, repo);
+    
+    console.log(`Found ${files.length} files in the repository`);
     
     if (files.length === 0) {
       return res.status(400).json({ 
@@ -35,47 +42,66 @@ export default async function handler(req, res) {
       });
     }
     
-    // Process files in batches to avoid overwhelming memory
+    
+    console.log(`Processing ${files.length} files...`);
+    
+    
+    const MAX_FILES = 40;
+    const limitedFiles = files.slice(0, MAX_FILES);
+    
+    
     const MAX_FILES_PER_BATCH = 20;
     let allChunks = [];
     
-    // Process files in batches
-    for (let i = 0; i < files.length; i += MAX_FILES_PER_BATCH) {
-      const fileBatch = files.slice(i, i + MAX_FILES_PER_BATCH);
+   
+    for (let i = 0; i < limitedFiles.length; i += MAX_FILES_PER_BATCH) {
+      const fileBatch = limitedFiles.slice(i, i + MAX_FILES_PER_BATCH);
       const processedFiles = [];
       
-      // Process each file in the current batch
+      console.log(`Processing batch ${i/MAX_FILES_PER_BATCH + 1}/${Math.ceil(limitedFiles.length/MAX_FILES_PER_BATCH)}...`);
+      
+      
       for (const file of fileBatch) {
         try {
-          // Get file content
+          
           const content = await getFileContent(file.downloadUrl);
           
           if (content) {
-            // Chunk the file
+           
             const chunks = chunkCodeFile(content, file.path);
             processedFiles.push(...chunks);
           }
         } catch (error) {
           console.error(`Error processing file ${file.path}:`, error);
-          // Continue with other files
+        
         }
       }
       
-      // Generate embeddings for the chunks
+     
       if (processedFiles.length > 0) {
         const embeddedChunks = await batchProcessEmbeddings(processedFiles);
         allChunks.push(...embeddedChunks);
       }
     }
     
-    // Add all chunks to the vector store
+    if (allChunks.length === 0) {
+      return res.status(400).json({
+        error: 'Failed to generate any code chunks from the repository'
+      });
+    }
+    
+    
     await addChunksToVectorStore(repoId, allChunks);
     
-    // Return success response
+    
+    const collection = await getCollection(repoId);
+    console.log(`Verification: Collection has ${collection.data?.length || 0} items`);
+    
+  
     return res.status(200).json({
       success: true,
       repository: repoInfo,
-      processedFiles: files.length,
+      processedFiles: limitedFiles.length,
       processedChunks: allChunks.length,
     });
   } catch (error) {

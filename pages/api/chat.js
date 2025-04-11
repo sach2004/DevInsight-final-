@@ -3,15 +3,13 @@ import { querySimilarChunks, getCollection } from '../../lib/chromadb';
 import { queryGroq } from '../../lib/groq';
 import { getRepositoryInfo } from '../../lib/github';
 
-/**
- * API endpoint to process chat messages
- */
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   
-  const { question, repoId } = req.body;
+  const { question, repoId, enhancedContext } = req.body;
   
   if (!question) {
     return res.status(400).json({ error: 'Question is required' });
@@ -22,46 +20,70 @@ export default async function handler(req, res) {
   }
   
   try {
-    // Extract owner and repo from repoId
+    console.log(`Processing chat for repository: ${repoId}, question: "${question}"`);
+    
+    
     const [owner, repo] = repoId.split('/');
     
-    // Check if the collection exists
+    
     try {
-      await getCollection(repoId);
+      const collection = await getCollection(repoId);
+      console.log(`Found collection for ${repoId} with ${collection.data?.length || 0} items`);
+      
+      if (!collection.data || collection.data.length === 0) {
+        return res.status(200).json({
+          answer: "I don't have any code data for this repository yet. Try processing the repository again or ask a general question that doesn't require specific code context.",
+          chunkCount: 0
+        });
+      }
     } catch (error) {
-      return res.status(404).json({
-        error: 'Repository not found or not processed',
-        message: 'Please process the repository first',
+      console.error('Error getting collection:', error);
+      return res.status(200).json({
+        answer: "I couldn't access the repository data. Please try processing the repository again.",
+        chunkCount: 0
       });
     }
     
-    // Generate embedding for the question
+    
+    console.log('Generating embedding for question...');
     const questionEmbedding = await generateEmbedding(question);
     
-    // Query for similar code chunks
-    const similarChunks = await querySimilarChunks(repoId, questionEmbedding, 5);
+    
+    const chunksToRetrieve = enhancedContext ? 8 : 5;
+    
+    
+    console.log(`Querying for similar chunks (${chunksToRetrieve} max)...`);
+    const similarChunks = await querySimilarChunks(repoId, questionEmbedding, chunksToRetrieve);
+    
+    console.log(`Found ${similarChunks.length} similar chunks`);
     
     if (similarChunks.length === 0) {
       return res.status(200).json({
         answer: "I couldn't find relevant code in the repository to answer your question. Could you please rephrase or ask about another aspect of the codebase?",
+        chunkCount: 0
       });
     }
     
-    // Get repository information
+    
+    console.log('Getting repository information...');
     const repoInfo = await getRepositoryInfo(owner, repo);
     
-    // Query the LLM with the context
+    
+    console.log('Querying LLM with context...');
     const answer = await queryGroq(question, similarChunks, repoInfo);
     
+    console.log('Successfully generated answer');
     return res.status(200).json({
       answer,
+      chunkCount: similarChunks.length
     });
   } catch (error) {
     console.error('Error processing chat message:', error);
     
-    return res.status(500).json({
-      error: 'Failed to process message',
-      message: error.message,
+    return res.status(200).json({
+      answer: `I encountered an error while processing your question: ${error.message}. Please try again or ask a different question.`,
+      error: true,
+      chunkCount: 0
     });
   }
 }
