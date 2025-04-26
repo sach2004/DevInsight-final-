@@ -1,6 +1,6 @@
 import Head from 'next/head';
 
-export default function Layout({ children, title = 'Codebase Assistant' }) {
+export default function Layout({ children, title = 'DevInsight' }) {
   return (
     <div className="flex flex-col min-h-screen bg-[#FFFDF8]">
       <Head>
