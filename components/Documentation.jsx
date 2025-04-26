@@ -1,77 +1,108 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
-
-export default function Documentation({ repositoryInfo }) {
+const Documentation = forwardRef(({ 
+  repositoryInfo, 
+  onDataLoaded, 
+  cachedData, 
+  isDataLoaded 
+}, ref) => {
   const [activeSection, setActiveSection] = useState('overview');
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
- 
-  useEffect(() => {
-    const generateDocs = async () => {
-      if (!repositoryInfo) return;
-      
-    
-      if (repositoryInfo.documentation) {
-        console.log("Documentation already available in repositoryInfo", repositoryInfo.documentation);
-        setDocData(repositoryInfo.documentation);
-        return;
-      }
-      
-      console.log("Documentation not found in repositoryInfo, fetching...");
-      setIsLoading(true);
-      
-      try {
-        
-        const response = await fetch('/api/generate-docs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            owner: repositoryInfo.owner.name, 
-            repo: repositoryInfo.name 
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to generate documentation: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log("Documentation API response:", data);
-        
-        if (data.repository && data.repository.documentation) {
-          setDocData(data.repository.documentation);
-        } else if (data.documentation) {
-          setDocData(data.documentation);
-        } else {
-          
-          setDocData({
-            title: `${repositoryInfo.name} Documentation`,
-            overview: repositoryInfo.description || 'No detailed overview available.',
-            meta: {
-              language: repositoryInfo.language || 'Unknown',
-              dependencies: []
-            },
-            sections: {}
-          });
-        }
-      } catch (err) {
-        console.error("Error generating documentation:", err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    generateDocs();
-  }, [repositoryInfo]);
-
   
+  useImperativeHandle(ref, () => ({
+    refreshData: generateDocs,
+    getDocData: () => docData
+  }));
+  
+  useEffect(() => {
+    if (repositoryInfo) {
+     
+      if (isDataLoaded && cachedData) {
+        setDocData(cachedData);
+      } else {
+        generateDocs();
+      }
+    }
+  }, [repositoryInfo, isDataLoaded, cachedData]);
+
+  const generateDocs = async () => {
+   
+    if (isDataLoaded && docData) {
+      return;
+    }
+    
+    if (!repositoryInfo) return;
+    
+    
+    if (repositoryInfo.documentation) {
+      console.log("Documentation already available in repositoryInfo", repositoryInfo.documentation);
+      setDocData(repositoryInfo.documentation);
+      
+      
+      if (onDataLoaded) {
+        onDataLoaded(repositoryInfo.documentation);
+      }
+      return;
+    }
+    
+    console.log("Documentation not found in repositoryInfo, fetching...");
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/generate-docs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          owner: repositoryInfo.owner.name, 
+          repo: repositoryInfo.name 
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to generate documentation: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Documentation API response:", data);
+      
+      let documentation;
+      if (data.repository && data.repository.documentation) {
+        documentation = data.repository.documentation;
+      } else if (data.documentation) {
+        documentation = data.documentation;
+      } else {
+        documentation = {
+          title: `${repositoryInfo.name} Documentation`,
+          overview: repositoryInfo.description || 'No detailed overview available.',
+          meta: {
+            language: repositoryInfo.language || 'Unknown',
+            dependencies: []
+          },
+          sections: {}
+        };
+      }
+      
+      setDocData(documentation);
+      
+     
+      if (onDataLoaded) {
+        onDataLoaded(documentation);
+      }
+    } catch (err) {
+      console.error("Error generating documentation:", err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -84,7 +115,6 @@ export default function Documentation({ repositoryInfo }) {
     );
   }
   
- 
   if (error) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -95,7 +125,6 @@ export default function Documentation({ repositoryInfo }) {
     );
   }
 
-  
   if (!docData) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -106,10 +135,8 @@ export default function Documentation({ repositoryInfo }) {
     );
   }
 
-  
   const renderMarkdown = (content) => {
     if (!content) return null;
-    
     
     const parts = [];
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
@@ -118,7 +145,6 @@ export default function Documentation({ repositoryInfo }) {
     let match;
     
     while ((match = codeBlockRegex.exec(content)) !== null) {
-      
       if (match.index > lastIndex) {
         parts.push({
           type: 'text',
@@ -135,7 +161,6 @@ export default function Documentation({ repositoryInfo }) {
       lastIndex = match.index + match[0].length;
     }
     
-   
     if (lastIndex < content.length) {
       parts.push({
         type: 'text',
@@ -143,26 +168,17 @@ export default function Documentation({ repositoryInfo }) {
       });
     }
     
-    
     return parts.map((part, index) => {
       if (part.type === 'text') {
-        
         const formattedText = part.content
-         
           .replace(/# (.*?)(\n|$)/g, '<h1 class="text-2xl font-bold mt-6 mb-4">$1</h1>')
           .replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl font-bold mt-5 mb-3">$1</h2>')
           .replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
-          
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          
           .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 hover:underline" target="_blank">$1</a>')
-          
           .replace(/- (.*?)(\n|$)/g, '<li class="ml-4">$1</li>')
-          
           .replace(/\n\n/g, '</p><p class="my-3">')
-          
           .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-red-600">$1</code>');
 
         return (
@@ -189,22 +205,15 @@ export default function Documentation({ repositoryInfo }) {
     });
   };
 
-  
   const sections = docData.sections || {};
-  
   
   const tableOfContents = Object.keys(sections).map(key => ({
     id: key,
     title: sections[key]?.title || key.charAt(0).toUpperCase() + key.slice(1),
   }));
 
-  console.log("Documentation data:", docData);
-  console.log("Sections:", sections);
-  console.log("Table of contents:", tableOfContents);
-
   return (
     <div className="flex flex-col lg:flex-row gap-6">
-     
       <div className="lg:w-1/4 p-4 bg-gray-50 rounded-lg h-fit sticky top-4">
         <h3 className="font-bold text-lg mb-4">Table of Contents</h3>
         <ul className="space-y-1">
@@ -237,7 +246,6 @@ export default function Documentation({ repositoryInfo }) {
         </ul>
       </div>
 
-     
       <div className="lg:w-3/4 overflow-auto">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           {activeSection === 'overview' ? (
@@ -288,4 +296,8 @@ export default function Documentation({ repositoryInfo }) {
       </div>
     </div>
   );
-}
+});
+
+Documentation.displayName = 'Documentation';
+
+export default Documentation;

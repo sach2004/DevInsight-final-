@@ -3,7 +3,6 @@ import { querySimilarChunks, getCollection } from '../../lib/chromadb';
 import { queryGroq } from '../../lib/groq';
 import { getRepositoryInfo } from '../../lib/github';
 
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -25,7 +24,7 @@ export default async function handler(req, res) {
     
     const [owner, repo] = repoId.split('/');
     
-    
+  
     try {
       const collection = await getCollection(repoId);
       console.log(`Found collection for ${repoId} with ${collection.data?.length || 0} items`);
@@ -44,12 +43,15 @@ export default async function handler(req, res) {
       });
     }
     
+  
+    const isCodeGenerationRequest = /write|create|generate|implement|develop|code|fix|improve|add functionality|refactor/i.test(question);
     
+   
     console.log('Generating embedding for question...');
     const questionEmbedding = await generateEmbedding(question);
     
     
-    const chunksToRetrieve = enhancedContext ? 8 : 5;
+    const chunksToRetrieve = isCodeGenerationRequest || enhancedContext ? 12 : 5;
     
     
     console.log(`Querying for similar chunks (${chunksToRetrieve} max)...`);
@@ -68,7 +70,7 @@ export default async function handler(req, res) {
     console.log('Getting repository information...');
     const repoInfo = await getRepositoryInfo(owner, repo);
     
-    
+   
     console.log('Querying LLM with context...');
     const answer = await queryGroq(question, similarChunks, repoInfo);
     
@@ -80,7 +82,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error processing chat message:', error);
     
-    return res.status(200).json({
+    return res.status(500).json({
       answer: `I encountered an error while processing your question: ${error.message}. Please try again or ask a different question.`,
       error: true,
       chunkCount: 0

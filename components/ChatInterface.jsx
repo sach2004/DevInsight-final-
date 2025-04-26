@@ -1,9 +1,8 @@
-
-
 import { useState, useRef, useEffect } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-
+import { Copy, CheckCircle, Github } from 'lucide-react';
+import CodePushComponent from './CodePushComponent';
 
 export default function ChatInterface({ repositoryInfo }) {
   const [messages, setMessages] = useState([]);
@@ -13,20 +12,25 @@ export default function ChatInterface({ repositoryInfo }) {
     chunkCount: 0,
     processingTime: 0
   });
+  const [copiedCode, setCopiedCode] = useState(null);
+  const [showPushDialog, setShowPushDialog] = useState(false);
+  const [selectedCode, setSelectedCode] = useState({ 
+    code: '', 
+    language: '',
+    context: null 
+  });
   const messagesEndRef = useRef(null);
-  
   
   useEffect(() => {
     if (repositoryInfo) {
       const initialMessage = {
         id: 'initial',
         role: 'assistant',
-        content: `I'm ready to help you explore the ${repositoryInfo.name} repository. What would you like to know about the codebase?`,
+        content: `I'm ready to help you explore the ${repositoryInfo.name} repository. What would you like to know about the codebase? I can explain code, suggest improvements, or write new code to enhance the project.`,
       };
       setMessages([initialMessage]);
     }
   }, [repositoryInfo]);
-  
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,18 +47,12 @@ export default function ChatInterface({ repositoryInfo }) {
       content: input.trim(),
     };
     
-    
     setMessages((prev) => [...prev, userMessage]);
-    
-   
     setInput('');
-    
-    
     setIsLoading(true);
     const startTime = Date.now();
     
     try {
-      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -74,12 +72,10 @@ export default function ChatInterface({ repositoryInfo }) {
       const data = await response.json();
       const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
       
-      
       setProcessingStats({
         chunkCount: data.chunkCount || 0,
         processingTime
       });
-      
       
       const assistantMessage = {
         id: Date.now().toString() + '-response',
@@ -91,7 +87,6 @@ export default function ChatInterface({ repositoryInfo }) {
     } catch (error) {
       console.error('Error getting chat response:', error);
       
-     
       const errorMessage = {
         id: Date.now().toString() + '-error',
         role: 'assistant',
@@ -105,6 +100,30 @@ export default function ChatInterface({ repositoryInfo }) {
     }
   };
   
+  const copyCodeToClipboard = (code, id) => {
+    navigator.clipboard.writeText(code)
+      .then(() => {
+        setCopiedCode(id);
+        setTimeout(() => setCopiedCode(null), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy code: ', err);
+      });
+  };
+
+  const handlePushToGitHub = (code, language) => {
+    
+    const conversationContext = {
+      messages: messages.slice(-10)
+    };
+    
+    setSelectedCode({ 
+      code, 
+      language,
+      context: conversationContext
+    });
+    setShowPushDialog(true);
+  };
   
   const processMessageContent = (content) => {
     if (!content) return [{ type: 'text', content: '' }];
@@ -116,14 +135,12 @@ export default function ChatInterface({ repositoryInfo }) {
     let match;
     
     while ((match = codeBlockRegex.exec(content)) !== null) {
-      
       if (match.index > lastIndex) {
         parts.push({
           type: 'text',
           content: processMarkdown(content.slice(lastIndex, match.index)),
         });
       }
-      
       
       parts.push({
         type: 'code',
@@ -134,14 +151,12 @@ export default function ChatInterface({ repositoryInfo }) {
       lastIndex = match.index + match[0].length;
     }
     
-    
     if (lastIndex < content.length) {
       parts.push({
         type: 'text',
         content: processMarkdown(content.slice(lastIndex)),
       });
     }
-    
     
     if (parts.length === 0) {
       parts.push({
@@ -153,31 +168,30 @@ export default function ChatInterface({ repositoryInfo }) {
     return parts;
   };
   
-  
   const processMarkdown = (text) => {
-   
+
     text = text.replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl font-bold my-3">$1</h2>');
     text = text.replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg font-semibold my-2">$1</h3>');
     
-   
+  
     text = text.replace(/^\s*[-*]\s+(.*?)$/gm, '<li class="ml-4">• $1</li>');
     text = text.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4">$1. $2</li>');
     
-    
+   
     text = text.replace(/<li class="ml-4">•([\s\S]*?)(?=<h|<li class="ml-4">\d|$)/g, '<ul class="my-2">$&</ul>');
     text = text.replace(/<li class="ml-4">(\d+)([\s\S]*?)(?=<h|<li class="ml-4">•|$)/g, '<ol class="my-2">$&</ol>');
     
     
     text = text.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-gray-100 rounded font-mono text-sm text-red-600">$1</code>');
     
-   
+    
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
     
     
     text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline" target="_blank" rel="noopener noreferrer">$1</a>');
     
-    
+  
     text = text.replace(/\n\n/g, '</p><p class="my-2">');
     
     
@@ -188,10 +202,8 @@ export default function ChatInterface({ repositoryInfo }) {
     return text;
   };
   
- 
   const renderMessage = (message) => {
-    const { role, content, error } = message;
-    
+    const { role, content, error, id } = message;
     
     const formattedContent = processMessageContent(content);
     
@@ -229,10 +241,38 @@ export default function ChatInterface({ repositoryInfo }) {
                 />
               );
             } else if (part.type === 'code') {
+              const codeBlockId = `${id}-code-${index}`;
               return (
                 <div key={index} className="my-4 rounded-md overflow-hidden border border-gray-300">
-                  <div className="bg-gray-800 px-4 py-1 text-xs text-gray-200">
-                    {part.language}
+                  <div className="bg-gray-800 px-4 py-1 text-xs text-gray-200 flex justify-between items-center">
+                    <span>{part.language}</span>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => handlePushToGitHub(part.content, part.language)}
+                        className="text-gray-300 hover:text-white transition-colors flex items-center"
+                        title="Push to GitHub"
+                      >
+                        <Github size={14} className="mr-1" />
+                        <span>Push to GitHub</span>
+                      </button>
+                      <button 
+                        onClick={() => copyCodeToClipboard(part.content, codeBlockId)}
+                        className="text-gray-300 hover:text-white transition-colors flex items-center"
+                        title="Copy code"
+                      >
+                        {copiedCode === codeBlockId ? (
+                          <div className="flex items-center">
+                            <CheckCircle size={14} className="mr-1" />
+                            <span>Copied!</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <Copy size={14} className="mr-1" />
+                            <span>Copy</span>
+                          </div>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <SyntaxHighlighter
                     language={part.language || 'javascript'}
@@ -250,6 +290,10 @@ export default function ChatInterface({ repositoryInfo }) {
         </div>
       </div>
     );
+  };
+
+  const handlePredefinedQuestion = (question) => {
+    setInput(question);
   };
 
   return (
@@ -283,7 +327,7 @@ export default function ChatInterface({ repositoryInfo }) {
       <form onSubmit={handleSubmit} className="flex">
         <input
           type="text"
-          className="input flex-grow mr-2 border-4  border-black w-[80%] shadow-[8px_8px_0px_0px_black] rounded-lg focus:outline-none focus:ring-0 focus:border-black" 
+          className="input flex-grow mr-2 border-4 border-black w-[80%] shadow-[8px_8px_0px_0px_black] rounded-lg focus:outline-none focus:ring-0 focus:border-black" 
           placeholder="Ask a question about the codebase..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -291,46 +335,57 @@ export default function ChatInterface({ repositoryInfo }) {
         />
         <button
           type="submit"
-          className="btn btn-black ml-4 bg-[#FFC480] border-4 h-full border-black shadow-[8px_8px_0px_0px_black] rounded-lg "
+          className="btn btn-black ml-4 bg-[#FFC480] border-4 h-full border-black shadow-[8px_8px_0px_0px_black] rounded-lg"
           disabled={isLoading || !input.trim()}
         >
           Send
         </button>
       </form>
       
-      {/* <div className="mt-4 text-sm text-gray-600">
-        <p className="mb-2">Try asking specific questions like:</p>
+      <div className="mt-4 text-sm text-gray-600">
+        <p className="mb-2">Try asking:</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <button 
             className="text-left px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors text-xs overflow-hidden overflow-ellipsis whitespace-nowrap"
-            onClick={() => setInput("Explain the project structure and main components")}
+            onClick={() => handlePredefinedQuestion("Explain the project structure and main components")}
             disabled={isLoading}
           >
             Explain the project structure and main components
           </button>
           <button 
             className="text-left px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors text-xs overflow-hidden overflow-ellipsis whitespace-nowrap"
-            onClick={() => setInput(`How does authentication work in ${repositoryInfo.name}?`)}
+            onClick={() => handlePredefinedQuestion(`How does authentication work in ${repositoryInfo.name}?`)}
             disabled={isLoading}
           >
             How does authentication work in this codebase?
           </button>
           <button 
             className="text-left px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors text-xs overflow-hidden overflow-ellipsis whitespace-nowrap"
-            onClick={() => setInput("What database or data storage methods are used?")}
+            onClick={() => handlePredefinedQuestion("Can you improve the error handling in the API endpoints?")}
             disabled={isLoading}
           >
-            What database or data storage methods are used?
+            Can you improve the error handling in the API endpoints?
           </button>
           <button 
             className="text-left px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors text-xs overflow-hidden overflow-ellipsis whitespace-nowrap"
-            onClick={() => setInput("What are the key API endpoints or functions?")}
+            onClick={() => handlePredefinedQuestion(`Write a new route.js file for ${repositoryInfo.name}`)}
             disabled={isLoading}
           >
-            What are the key API endpoints or functions?
+            Write a new route.js file for this project
           </button>
         </div>
-      </div> */}
+      </div>
+      
+   
+      {showPushDialog && (
+        <CodePushComponent
+          code={selectedCode.code}
+          language={selectedCode.language}
+          context={selectedCode.context}
+          repositoryInfo={repositoryInfo}
+          onClose={() => setShowPushDialog(false)}
+        />
+      )}
       
       <style jsx global>{`
         .message-text h2, .message-text h3 {

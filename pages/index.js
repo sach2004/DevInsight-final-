@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import RepositoryInput from '../components/RepositoryInput';
 import ChatInterface from '../components/ChatInterface';
@@ -12,19 +12,44 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('chat');
   
+  
+  const [fileStructureLoaded, setFileStructureLoaded] = useState(false);
+  const [fileStructureData, setFileStructureData] = useState(null);
+  const [documentationLoaded, setDocumentationLoaded] = useState(false);
+  const [documentationData, setDocumentationData] = useState(null);
+  
+  
+  const chatRef = useRef(null);
+  const fileStructureRef = useRef(null);
+  const documentationRef = useRef(null);
+  
+  
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+  
+  
+  const handleFileStructureLoaded = (data) => {
+    setFileStructureLoaded(true);
+    setFileStructureData(data);
+  };
+  
+  
+  const handleDocumentationLoaded = (data) => {
+    setDocumentationLoaded(true);
+    setDocumentationData(data);
+  };
+  
   const handleProcessRepository = async (url) => {
-    
     setError(null);
     setIsProcessing(true);
     
     try {
-      
       const response = await fetch('/api/process-repo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        
         body: JSON.stringify({ url }),
       });
       
@@ -34,10 +59,13 @@ export default function Home() {
         throw new Error(data.message || data.error || 'Failed to process repository');
       }
       
-      console.log(JSON.stringify(data.repository))
      
+      setFileStructureLoaded(false);
+      setDocumentationLoaded(false);
+      setFileStructureData(null);
+      setDocumentationData(null);
+      
       setRepository(data.repository);
-      console.log(JSON.stringify(repository))
     } catch (error) {
       console.error('Error processing repository:', error);
       setError(error.message);
@@ -86,6 +114,10 @@ export default function Home() {
                   onClick={() => {
                     setRepository(null);
                     setError(null);
+                    setFileStructureLoaded(false);
+                    setDocumentationLoaded(false);
+                    setFileStructureData(null);
+                    setDocumentationData(null);
                   }}
                 >
                   Change Repository
@@ -96,7 +128,6 @@ export default function Home() {
               )}
             </div>
             
-           
             <div className="flex border-b border-gray-200 mb-6">
               <button
                 className={`py-2 px-4 font-medium text-sm mr-4 ${
@@ -104,7 +135,7 @@ export default function Home() {
                     ? 'text-primary-600 border-b-2 border-primary-600' 
                     : 'text-gray-600 hover:text-primary-500'
                 }`}
-                onClick={() => setActiveTab('chat')}
+                onClick={() => handleTabChange('chat')}
               >
                 Chat
               </button>
@@ -114,7 +145,7 @@ export default function Home() {
                     ? 'text-primary-600 border-b-2 border-primary-600' 
                     : 'text-gray-600 hover:text-primary-500'
                 }`}
-                onClick={() => setActiveTab('structure')}
+                onClick={() => handleTabChange('structure')}
               >
                 File Structure
               </button>
@@ -124,23 +155,50 @@ export default function Home() {
                     ? 'text-primary-600 border-b-2 border-primary-600' 
                     : 'text-gray-600 hover:text-primary-500'
                 }`}
-                onClick={() => setActiveTab('docs')}
+                onClick={() => handleTabChange('docs')}
               >
                 Documentation
               </button>
             </div>
             
-           
             <div>
-              {activeTab === 'chat' && <ChatInterface repositoryInfo={repository} />}
-              {activeTab === 'structure' && <FileStructure repositoryInfo={repository} />}
-              {activeTab === 'docs' && <Documentation repositoryInfo={repository} />}
+              {activeTab === 'chat' && (
+                <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
+                  <ChatInterface 
+                    ref={chatRef}
+                    repositoryInfo={repository} 
+                  />
+                </div>
+              )}
+              
+              {activeTab === 'structure' && (
+                <div style={{ display: activeTab === 'structure' ? 'block' : 'none' }}>
+                  <FileStructure 
+                    ref={fileStructureRef}
+                    repositoryInfo={repository} 
+                    onDataLoaded={handleFileStructureLoaded}
+                    cachedData={fileStructureData}
+                    isDataLoaded={fileStructureLoaded}
+                  />
+                </div>
+              )}
+              
+              {activeTab === 'docs' && (
+                <div style={{ display: activeTab === 'docs' ? 'block' : 'none' }}>
+                  <Documentation 
+                    ref={documentationRef}
+                    repositoryInfo={repository} 
+                    onDataLoaded={handleDocumentationLoaded}
+                    cachedData={documentationData}
+                    isDataLoaded={documentationLoaded}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
       
-    
       <div id="toast-container" className="fixed bottom-0 right-0 p-4 z-50"></div>
     </Layout>
   );

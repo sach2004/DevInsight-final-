@@ -1,20 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ChevronDown, ChevronRight, Folder, File } from 'lucide-react';
 
-
-export default function FileStructure({ repositoryInfo }) {
+const FileStructure = forwardRef(({ 
+  repositoryInfo, 
+  onDataLoaded, 
+  cachedData, 
+  isDataLoaded 
+}, ref) => {
   const [fileTree, setFileTree] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState({});
+  
+ 
+  useImperativeHandle(ref, () => ({
+    refreshData: fetchFileStructure,
+    getFileTree: () => fileTree
+  }));
 
   useEffect(() => {
     if (repositoryInfo) {
-      fetchFileStructure();
+     
+      if (isDataLoaded && cachedData) {
+        setFileTree(cachedData);
+      } else {
+        fetchFileStructure();
+      }
     }
-  }, [repositoryInfo]);
+  }, [repositoryInfo, isDataLoaded, cachedData]);
 
   const fetchFileStructure = async () => {
+    
+    if (isDataLoaded && fileTree) {
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
 
@@ -35,6 +55,11 @@ export default function FileStructure({ repositoryInfo }) {
 
       const data = await response.json();
       setFileTree(data.fileTree);
+      
+      
+      if (onDataLoaded) {
+        onDataLoaded(data.fileTree);
+      }
     } catch (error) {
       console.error('Error fetching file structure:', error);
       setError(error.message);
@@ -49,7 +74,6 @@ export default function FileStructure({ repositoryInfo }) {
       [path]: !prev[path],
     }));
   };
-
 
   const renderTree = (node, path = '', depth = 0) => {
     if (!node) return null;
@@ -132,4 +156,8 @@ export default function FileStructure({ repositoryInfo }) {
       </div>
     </div>
   );
-}
+});
+
+FileStructure.displayName = 'FileStructure';
+
+export default FileStructure;
