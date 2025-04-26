@@ -4,7 +4,10 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Copy, CheckCircle, Github } from 'lucide-react';
 import CodePushComponent from './CodePushComponent';
 
-export default function ChatInterface({ repositoryInfo }) {
+export default function ChatInterface({ 
+  repositoryInfo,
+  initialPrompt = ''  // Add this prop to accept prompts from other components
+}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +23,13 @@ export default function ChatInterface({ repositoryInfo }) {
     context: null 
   });
   const messagesEndRef = useRef(null);
+  
+  // Set input when initialPrompt prop changes
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim() !== '') {
+      setInput(initialPrompt);
+    }
+  }, [initialPrompt]);
   
   useEffect(() => {
     if (repositoryInfo) {
@@ -112,9 +122,9 @@ export default function ChatInterface({ repositoryInfo }) {
   };
 
   const handlePushToGitHub = (code, language) => {
-    
+    // Collect the recent conversation for context
     const conversationContext = {
-      messages: messages.slice(-10)
+      messages: messages.slice(-10) // Get the last 10 messages for context
     };
     
     setSelectedCode({ 
@@ -169,32 +179,32 @@ export default function ChatInterface({ repositoryInfo }) {
   };
   
   const processMarkdown = (text) => {
-
+    // Process headings
     text = text.replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl font-bold my-3">$1</h2>');
     text = text.replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg font-semibold my-2">$1</h3>');
     
-  
+    // Process lists
     text = text.replace(/^\s*[-*]\s+(.*?)$/gm, '<li class="ml-4">• $1</li>');
     text = text.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4">$1. $2</li>');
     
-   
+    // Wrap lists
     text = text.replace(/<li class="ml-4">•([\s\S]*?)(?=<h|<li class="ml-4">\d|$)/g, '<ul class="my-2">$&</ul>');
     text = text.replace(/<li class="ml-4">(\d+)([\s\S]*?)(?=<h|<li class="ml-4">•|$)/g, '<ol class="my-2">$&</ol>');
     
-    
+    // Process inline code
     text = text.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-gray-100 rounded font-mono text-sm text-red-600">$1</code>');
     
-    
+    // Process bold and italic
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
     
-    
+    // Process links
     text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline" target="_blank" rel="noopener noreferrer">$1</a>');
     
-  
+    // Process paragraphs
     text = text.replace(/\n\n/g, '</p><p class="my-2">');
     
-    
+    // Ensure all text is wrapped in paragraphs
     if (!text.startsWith('<h') && !text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
       text = `<p class="my-2">${text}</p>`;
     }
@@ -296,6 +306,22 @@ export default function ChatInterface({ repositoryInfo }) {
     setInput(question);
   };
 
+  // Auto-submit when initialPrompt is provided
+  useEffect(() => {
+    // Check if we have a non-empty initialPrompt and if it's a fresh prompt
+    if (initialPrompt && initialPrompt.trim() !== '' && input === initialPrompt) {
+      // Submit the form automatically after a short delay
+      const timer = setTimeout(() => {
+        const submitButton = document.querySelector('form button[type="submit"]');
+        if (submitButton) {
+          submitButton.click();
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [input, initialPrompt]);
+
   return (
     <div className="bg-[#fff4da] border-4 border-black shadow-[8px_8px_0px_0px_black] rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-4">Ask about {repositoryInfo.name}</h2>
@@ -376,7 +402,7 @@ export default function ChatInterface({ repositoryInfo }) {
         </div>
       </div>
       
-   
+      {/* GitHub Push Dialog */}
       {showPushDialog && (
         <CodePushComponent
           code={selectedCode.code}
